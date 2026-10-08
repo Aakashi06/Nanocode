@@ -2,7 +2,7 @@
 name = "nanocode"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["openai", "requests"]
+dependencies = ["openai>=1.55,<4"]
 
 [project.scripts]
 nanocode = "nanocode.__main__:main"

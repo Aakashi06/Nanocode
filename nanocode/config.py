@@ -1,74 +1,40 @@
-"""Configuration module for nanocode.
-
-This module handles loading configuration from environment variables.
-Sensitive credentials like API keys are loaded from the environment
-rather than being hardcoded in the source code.
-"""
+"""Runtime configuration. Importing this module never requires credentials."""
 
 import os
 from pathlib import Path
 
 from openai import OpenAI
 
+DEFAULT_MODEL = "cohere/north-mini-code:free"
 
-def _load_dotenv():
-    env_file = Path(__file__).resolve().parent.parent / ".env"
-    if not env_file.exists():
-        return
-    for line in env_file.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+
+def load_dotenv():
+    # Project-local settings take priority over the installation's .env.
+    paths = [Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
+    for path in dict.fromkeys(paths):
+        if not path.is_file():
             continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip("'\""))
-
-
-_load_dotenv()
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("export "):
+                line = line[7:].strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
 class Config:
-    """Central configuration class for nanocode.
-
-    All sensitive values are loaded from environment variables to avoid
-    leaking credentials in source control. If a required environment
-    variable is not set, a clear error message is raised.
-
-    Attributes:
-        OPENAI_API_KEY: API key for the OpenAI-compatible endpoint.
-        FIRECRAWL_API_KEY: API key for the Firecrawl web scraping service.
-        MODEL: The model identifier to use for completions.
-    """
-
-    def __init__(self):
-        """Initialize configuration from environment variables.
-
-        Raises:
-            ValueError: If required environment variables are not set.
-        """
-        self.OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-        self.FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY")
-        self.MODEL = os.environ.get("MODEL", "poolside/laguna-s-2.1:free")
-
-        if not self.OPENAI_API_KEY:
-            raise ValueError(
-                "OPENAI_API_KEY environment variable is required. "
-                "Set it with: export OPENAI_API_KEY='your-api-key-here'"
-            )
-        if not self.FIRECRAWL_API_KEY:
-            raise ValueError(
-                "FIRECRAWL_API_KEY environment variable is required. "
-                "Set it with: export FIRECRAWL_API_KEY='your-api-key-here'"
-            )
-
+    def __init__(self, model=None):
+        load_dotenv()
+        self.model = model or os.environ.get("MODEL") or DEFAULT_MODEL
+        self.firecrawl_key = os.environ.get("FIRECRAWL_API_KEY")
+        key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        if not key:
+            raise ValueError("Set OPENROUTER_API_KEY (or OPENAI_API_KEY) in your .env or environment.")
         self.client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
-            api_key=self.OPENAI_API_KEY,
+            api_key=key,
+            timeout=60.0,
+            max_retries=2,
         )
-
-
-# Create a singleton config instance for convenience
-config = Config()
-
-client = config.client
-MODEL = config.MODEL
-FIRECRAWL_API_KEY = config.FIRECRAWL_API_KEY
