@@ -1,6 +1,6 @@
 # NanoCode
 
-**A small Python agent harness that turns plain-English requests into file operations and terminal commands.**
+**Python agent harness that turns plain-English requests into file operations and terminal commands.**
 
 NanoCode connects an OpenRouter model to your local project. It can inspect code, propose changes, execute approved tools, and use the results to decide what to do next—all from your terminal.
 
